@@ -1,6 +1,6 @@
 import jsonpickle
 import tqdm
-
+from pgrap import pgrap
 
 def create_kv(conn, table, schema='public', dtype='jsonb', index=True, load_type='copy', print_sql=True):
     if load_type == 'copy':
@@ -8,16 +8,17 @@ def create_kv(conn, table, schema='public', dtype='jsonb', index=True, load_type
     else:
         unique = 'unique'
     
-    sql_base = '''create schema if not exists {schema};
+    sql_base = '''
+create schema if not exists {schema};
 create table if not exists {schema}.{table} (
     id serial primary key
     , key varchar(2048) not null {unique}
-    , value {dtype}
-'''.format(schema=schema, table=table, dtype=dtype, unique=unique)
+    , value {dtype}'''.format(schema=schema, table=table, dtype=dtype, unique=unique)
     
-    sql_copy = ');'
+    sql_copy = "\n);"
     
-    sql_insert = '''    , created_at timestamp(0) without time zone default (clock_timestamp() at time zone 'utc')
+    sql_insert = '''    
+    , created_at timestamp(0) without time zone default (clock_timestamp() at time zone 'utc')
     , updated_at timestamp(0) default null
     , updated_count int default 0
 );
@@ -42,15 +43,13 @@ create index if not exists idx_{table}_key on {schema}.{table} using btree(key);
     if index and dtype == 'text':
         sql = sql + '''
 create index if not exists idx_{table}_value_tsv on {schema}.{table} using gin(to_tsvector('english', value));
-create index if not exists idx_{table}_value_trgm on {schema}.{table} using gin(value gin_trgm_ops);
-        '''.format(schema=schema, table=table)
+create index if not exists idx_{table}_value_trgm on {schema}.{table} using gin(value gin_trgm_ops);'''.format(schema=schema, table=table)
     elif index and dtype == 'jsonb':
         sql = sql + '''
-create index if not exists idx_{table}_value_json on {schema}.{table} using gin(value jsonb_path_ops);
-        '''.format(schema=schema, table=table, dtype=dtype)
+create index if not exists idx_{table}_value_json on {schema}.{table} using gin(value jsonb_path_ops);'''.format(schema=schema, table=table, dtype=dtype)
     # if print_sql:
     #     print(sql)
-    execute(conn, sql, print_sql=print_sql)
+    pgrap.execute(conn, sql, print_sql=print_sql)
 
 def insert_kv(conn, k_data, v_data, table, schema='public', dtype='auto', print_sql=False, upsert=True, index=True):
     if len(str(k_data)) > 2048:
@@ -63,15 +62,13 @@ def insert_kv(conn, k_data, v_data, table, schema='public', dtype='auto', print_
             dtype = 'jsonb'
             v_data = jsonpickle.encode(v_data, False)
 
-    sql = '''
-    insert into {schema}.{table} (key, value) values (%s, %s)
-    '''.format(schema=schema, table=table)
+    sql = "insert into {schema}.{table} (key, value) values (%s, %s)".format(schema=schema, table=table)
     if upsert:
-        sql = sql + '''\n
-        on conflict (key) do update set value = excluded.value, updated_count = {schema}.{table}.updated_count + 1;
-        '''.format(schema=schema, table=table)
+        sql = sql + '''on conflict (key) do update set 
+    value = excluded.value, 
+    updated_count = {schema}.{table}.updated_count + 1;'''.format(schema=schema, table=table)
     key_value = (str(k_data), v_data)
-    execute(conn, sql, data=key_value, print_sql=print_sql)
+    pgrap.execute(conn, sql, data=key_value, print_sql=print_sql)
     
 def insert_multi_kv(conn, data, k_name, table='copy_temp', schema='public', overwrite=False):
     if overwrite:
@@ -111,10 +108,7 @@ def find_kv(conn, table, key, select='*', schema='public'):
     return query(conn, sql)
 
 def select_kv(conn, table, select='*', where='true', orderby=False, limit=False, schema='public'):
-    sql = '''
-    select {select}
-    from {schema}.{table}
-    where {where}
+    sql = '''select {select} from {schema}.{table} where {where};
     '''.format(schema=schema, table=table, select=select, where=where)
     if orderby:
         sql = sql + "\norder by {orderby}".format(orderby=orderby)
