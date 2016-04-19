@@ -72,16 +72,16 @@ def insert_kv(conn, k_data, v_data, table, schema='public', dtype='auto', print_
     
 def insert_multi_kv(conn, data, k_name, table='copy_temp', schema='public', overwrite=False):
     if overwrite:
-        drop_table(conn, table, schema)
-        create_kv(conn, table, schema, dtype='jsonb', index=False, load_type='insert')
+        pgrap.drop_table(conn, table, schema)
+        pgrap.create_kv(conn, table, schema, dtype='jsonb', index=False, load_type='insert')
     
     for page in tqdm.tqdm(data, desc='Inserting EightyCraw Stagging Data'):
-        insert_kv(conn, k_data=page[k_name], v_data=page, table=table, schema=schema)
+        pgrap.insert_kv(conn, k_data=page[k_name], v_data=page, table=table, schema=schema)
 
 def copy_multi_kv(conn, data, k_name, table='copy_temp', overwrite=False):
     if overwrite:
-        drop_table(conn, table, schema='public')
-        create_kv(conn, table, schema='public', dtype='jsonb', index=False, load_type='copy')
+        pgrap.drop_table(conn, table, schema='public')
+        pgrap.create_kv(conn, table, schema='public', dtype='jsonb', index=False, load_type='copy')
     
     def gen_records(records):
         for value in records:
@@ -91,7 +91,7 @@ def copy_multi_kv(conn, data, k_name, table='copy_temp', overwrite=False):
             yield '{}\t{}'.format(value[k_name], jsonpickle.dumps(value).replace('"', r'\"'))
     
     fio = io.StringIO('\n'.join(gen_records(data)))
-    copy_from(conn, file_obj=fio, table=table, columns=('key', 'value'))
+    pgrap.copy_from(conn, file_obj=fio, table=table, columns=('key', 'value'))
     fio.close()
 
 def search_kv(conn, search, table, select='*', limit=False, schema='public'):
@@ -100,12 +100,12 @@ def search_kv(conn, search, table, select='*', limit=False, schema='public'):
     '''.format(schema=schema, table=table, select=select, search=search)
     if limit:
         sql = sql + "\nlimit {limit}".format(limit=limit)
-    return query(conn, sql)
+    return pgrap.query(conn, sql)
 
 def find_kv(conn, table, key, select='*', schema='public'):
     sql = '''select {select} from {schema}.{table} where key = {key};
     '''.format(select=select, key=key, table=table, schema=schema)
-    return query(conn, sql)
+    return pgrap.query(conn, sql)
 
 def select_kv(conn, table, select='*', where='true', orderby=False, limit=False, schema='public'):
     sql = '''select {select} from {schema}.{table} where {where};
@@ -114,4 +114,4 @@ def select_kv(conn, table, select='*', where='true', orderby=False, limit=False,
         sql = sql + "\norder by {orderby}".format(orderby=orderby)
     if limit:
         sql = sql + "\nlimit {limit}".format(limit=limit)
-    return query(conn, sql)
+    return pgrap.query(conn, sql)
