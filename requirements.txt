@@ -1,0 +1,12 @@
+# required
+psycopg2
+jsonpickle
+
+# optional
+sqlalchemy
+db.py
+dataset
+queries
+postgres
+pgwrap
+records
