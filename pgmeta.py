@@ -2,6 +2,16 @@ import psycopg2
 import urllib
 
 # postgres connection ultilities
+def docker_connect(autocommit=False):
+    "Connect to database running in docker container named 'pg'"
+    conn = psycopg2.connect(user=os.environ['PG_ENV_POSTGRES_USER'], 
+        password=os.environ['PG_ENV_POSTGRES_PASSWORD'],
+        host=os.environ['PG_PORT_5432_TCP_ADDR'], 
+        port=os.environ['PG_PORT_5432_TCP_PORT'], 
+        database=os.environ['PG_ENV_POSTGRES_DB'])
+    conn.autocommit = autocommit
+    return conn
+    
 def conn_config(username, password, hostname, port='5432', dbname='postgres', scheme='postgres'):
     conn_config = {
         'username': username, 

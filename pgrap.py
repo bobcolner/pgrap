@@ -2,16 +2,6 @@ import psycopg2
 from psycopg2 import extras
 import os
 
-def docker_connect(autocommit=False):
-    "Connect to database running in docker container named 'pg'"
-    conn = psycopg2.connect(user=os.environ['PG_ENV_POSTGRES_USER'], 
-        password=os.environ['PG_ENV_POSTGRES_PASSWORD'],
-        host=os.environ['PG_PORT_5432_TCP_ADDR'], 
-        port=os.environ['PG_PORT_5432_TCP_PORT'], 
-        database=os.environ['PG_ENV_POSTGRES_DB'])
-    conn.autocommit = autocommit
-    return conn
-
 def query(conn, sql, results='nt', print_sql=False):
     "Issue SQL query that returns a result set."
     return execute(conn, sql, print_sql=print_sql, results=results)

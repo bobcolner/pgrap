@@ -98,20 +98,3 @@ def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=F
     if limit:
         sql = sql + "\nlimit {limit}".format(limit=limit)
     return pgrap.query(conn, sql)
-
-# def write_tsv(fio, data, key_name):
-#     writer = csv.writer(fio, dialect='excel')
-#     for row in tqdm.tqdm(data, desc='Writing TSV'):
-#         if len(str(row[key_name])) > MAX_KEY:
-#             print('key to long: '+str(k_data)[0:MAX_KEY])
-#             continue
-#         writer.writerow([row[key_name], jsonpickle.dumps(row, False)])
-#     return fio
-
-# def data2tsv(data, key_name, output='buffer'):
-#     if output=='file':
-#         with open("copy_tmp.tsv", "w") as fio:
-#             return write_tsv(fio, data, key_name)
-#     elif output=='buffer':
-#         with io.StringIO() as fio:
-#             return write_tsv(fio, data, key_name)
