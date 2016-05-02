@@ -1,23 +1,18 @@
+import io
+import csv
 import jsonpickle
 import tqdm
 from pgrap import pgrap
 
-def create_kv(conn, table, schema='public', dtype='jsonb', index=True, load_type='copy', print_sql=True):
-    if load_type == 'copy':
-        unique = ''
-    else:
-        unique = 'unique'
-    
-    sql_base = '''
+MAX_KEY = 2048
+
+def create_kv(conn, table='kv', schema='public', dtype='jsonb'):    
+    sql = '''
 create schema if not exists {schema};
 create table if not exists {schema}.{table} (
     id serial primary key
-    , key varchar(2048) not null {unique}
-    , value {dtype}'''.format(schema=schema, table=table, dtype=dtype, unique=unique)
-    
-    sql_copy = "\n);"
-    
-    sql_insert = '''    
+    , key varchar({n}) not null unique
+    , value {dtype}
     , created_at timestamp(0) without time zone default (clock_timestamp() at time zone 'utc')
     , updated_at timestamp(0) default null
     , updated_count int default 0
@@ -30,71 +25,73 @@ end;
 $$ language plpgsql;
 drop trigger if exists set_updated_at on {schema}.{table};
 create trigger set_updated_at before update on {schema}.{table} for each row execute procedure set_updated_at();
-'''.format(schema=schema, table=table, dtype=dtype)
-        
-    if load_type == 'copy':
-        sql = sql_base + sql_copy
-    elif load_type != 'copy':
-        sql = sql_base + sql_insert
-    # add optional indexes
-    if index:
-        sql = sql + '''
-create index if not exists idx_{table}_key on {schema}.{table} using btree(key);'''.format(schema=schema, table=table)
-    if index and dtype == 'text':
-        sql = sql + '''
-create index if not exists idx_{table}_value_tsv on {schema}.{table} using gin(to_tsvector('english', value));
-create index if not exists idx_{table}_value_trgm on {schema}.{table} using gin(value gin_trgm_ops);'''.format(schema=schema, table=table)
-    elif index and dtype == 'jsonb':
-        sql = sql + '''
-create index if not exists idx_{table}_value_json on {schema}.{table} using gin(value jsonb_path_ops);'''.format(schema=schema, table=table, dtype=dtype)
-    # if print_sql:
-    #     print(sql)
-    pgrap.execute(conn, sql, print_sql=print_sql)
+create index if not exists idx_btree_key on {schema}.{table} using btree(key);
+'''.format(schema=schema, table=table, dtype=dtype, n=MAX_KEY)
 
-def insert_kv(conn, k_data, v_data, table, schema='public', dtype='auto', print_sql=False, upsert=True, index=True):
-    if len(str(k_data)) > 2048:
-        print('key data to large: '+str(k_data)[0:2048])
+    # add optional indexes
+    if dtype == 'text':
+        sql = sql + '''
+create index if not exists idx_tsvector_value on {schema}.{table} using gin(to_tsvector('english', value));
+create index if not exists idx_trgm_value on {schema}.{table} using gin(value gin_trgm_ops);'''.format(schema=schema, table=table)
+    elif dtype == 'jsonb':
+        sql = sql + '''
+create index if not exists idx_gin_value on {schema}.{table} using gin(value jsonb_path_ops);'''.format(schema=schema, table=table)
+    
+    pgrap.execute(conn, sql)
+
+def kv_setup(conn, table='kv', schema='public', dtype='jsonb', setup='create'):
+    if setup == 'create':
+        create_kv(conn, table, schema, dtype)
+    elif setup == 'overwrite':
+        pgrap.drop_table(conn, table, schema)
+        create_kv(conn, table, schema, dtype)
+    elif setup == 'drop':
+        pgrap.drop_table(conn, table, schema)
+
+def insert_kv(conn, k_data, v_data, table='kv', schema='public', dtype='auto', setup='create'):
+    
+    if len(str(k_data)) > MAX_KEY:
+        print('key data to large: '+str(k_data)[0:MAX_KEY])
         return None
+    
     if dtype == 'auto':    
         if type(v_data) == str:
             dtype = 'text'
         else:
             dtype = 'jsonb'
-            v_data = jsonpickle.encode(v_data, False)
+    
+    if dtype == 'jsonb':
+        v_data = jsonpickle.encode(v_data, False)
+    
+    if setup:
+        kv_setup(conn, table, schema, dtype, setup)
 
-    sql = "insert into {schema}.{table} (key, value) values (%s, %s)".format(schema=schema, table=table)
-    if upsert:
-        sql = sql + '''on conflict (key) do update set 
+    sql = '''
+insert into {schema}.{table} (key, value) values (%s, %s)
+on conflict (key) do update set 
     value = excluded.value, 
-    updated_count = {schema}.{table}.updated_count + 1;'''.format(schema=schema, table=table)
-    key_value = (str(k_data), v_data)
-    pgrap.execute(conn, sql, data=key_value, print_sql=print_sql)
+    updated_count = {schema}.{table}.updated_count + 1
+;'''.format(schema=schema, table=table)
     
-def insert_multi_kv(conn, data, k_name, table='copy_temp', schema='public', overwrite=False):
-    if overwrite:
-        pgrap.drop_table(conn, table, schema)
-        pgrap.create_kv(conn, table, schema, dtype='jsonb', index=False, load_type='insert')
-    
-    for page in tqdm.tqdm(data, desc='Inserting EightyCraw Stagging Data'):
-        pgrap.insert_kv(conn, k_data=page[k_name], v_data=page, table=table, schema=schema)
+    pgrap.execute(conn, sql, data=(str(k_data), v_data))
 
-def copy_multi_kv(conn, data, k_name, table='copy_temp', overwrite=False):
-    if overwrite:
-        pgrap.drop_table(conn, table, schema='public')
-        pgrap.create_kv(conn, table, schema='public', dtype='jsonb', index=False, load_type='copy')
-    
-    def gen_records(records):
-        for value in records:
-            if len(str(value[k_name])) > 2048:
-                print('key data to large: '+str(k_data)[0:2048])
-                return None
-            yield '{}\t{}'.format(value[k_name], jsonpickle.dumps(value).replace('"', r'\"'))
-    
-    fio = io.StringIO('\n'.join(gen_records(data)))
-    pgrap.copy_from(conn, file_obj=fio, table=table, columns=('key', 'value'))
-    fio.close()
+def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='jsonb', setup='create'):
+    if setup:
+        kv_setup(conn, table, schema, dtype, setup)
 
-def search_kv(conn, search, table, select='*', limit=False, schema='public'):
+    for row in tqdm.tqdm(data, desc='Inserting Key-Value Records'):
+        try:
+            insert_kv(conn, k_data=row[k_name], v_data=row, table=table, schema=schema, dtype=dtype, setup=None)
+        except:
+            print("Fail: "+row[k_name])
+            continue
+
+def find_kv(conn, table, key, select='*', schema='public'):
+    sql = '''select {select} from {schema}.{table} where key = '{key}';
+    '''.format(select=select, key=key, table=table, schema=schema)
+    return pgrap.query(conn, sql)
+
+def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=False):
     search = search.replace(' ', '&')
     sql = '''select {select} from {schema}.{table} where to_tsvector(value) @@ to_tsquery('{search}');
     '''.format(schema=schema, table=table, select=select, search=search)
@@ -102,16 +99,19 @@ def search_kv(conn, search, table, select='*', limit=False, schema='public'):
         sql = sql + "\nlimit {limit}".format(limit=limit)
     return pgrap.query(conn, sql)
 
-def find_kv(conn, table, key, select='*', schema='public'):
-    sql = '''select {select} from {schema}.{table} where key = {key};
-    '''.format(select=select, key=key, table=table, schema=schema)
-    return pgrap.query(conn, sql)
+# def write_tsv(fio, data, key_name):
+#     writer = csv.writer(fio, dialect='excel')
+#     for row in tqdm.tqdm(data, desc='Writing TSV'):
+#         if len(str(row[key_name])) > MAX_KEY:
+#             print('key to long: '+str(k_data)[0:MAX_KEY])
+#             continue
+#         writer.writerow([row[key_name], jsonpickle.dumps(row, False)])
+#     return fio
 
-def select_kv(conn, table, select='*', where='true', orderby=False, limit=False, schema='public'):
-    sql = '''select {select} from {schema}.{table} where {where};
-    '''.format(schema=schema, table=table, select=select, where=where)
-    if orderby:
-        sql = sql + "\norder by {orderby}".format(orderby=orderby)
-    if limit:
-        sql = sql + "\nlimit {limit}".format(limit=limit)
-    return pgrap.query(conn, sql)
+# def data2tsv(data, key_name, output='buffer'):
+#     if output=='file':
+#         with open("copy_tmp.tsv", "w") as fio:
+#             return write_tsv(fio, data, key_name)
+#     elif output=='buffer':
+#         with io.StringIO() as fio:
+#             return write_tsv(fio, data, key_name)

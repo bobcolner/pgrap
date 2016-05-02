@@ -1,9 +1,9 @@
 import psycopg2
 from psycopg2 import extras
 import os
-import io
 
 def docker_connect(autocommit=False):
+    "Connect to database running in docker container named 'pg'"
     conn = psycopg2.connect(user=os.environ['PG_ENV_POSTGRES_USER'], 
         password=os.environ['PG_ENV_POSTGRES_PASSWORD'],
         host=os.environ['PG_PORT_5432_TCP_ADDR'], 
@@ -13,9 +13,11 @@ def docker_connect(autocommit=False):
     return conn
 
 def query(conn, sql, results='nt', print_sql=False):
+    "Issue SQL query that returns a result set."
     return execute(conn, sql, print_sql=print_sql, results=results)
 
 def execute(conn, sql, data=None, print_sql=False, submit=True, results=False):
+    "Issue a general SQL statment. Optinally specify results cursor type."
     with conn:
         if results:
             if results == 'pgdict':
@@ -28,8 +30,8 @@ def execute(conn, sql, data=None, print_sql=False, submit=True, results=False):
                 cur_type = psycopg2.extras.NamedTupleCursor
             with conn.cursor(cursor_factory=cur_type) as cursor:
                 if print_sql:
-                    print(curr.mogrify(query=sql, vars=data))
-                if submit:                    
+                    return curr.mogrify(query=sql, vars=data)
+                if submit:
                     cursor.execute(query=sql, vars=data)
                     return cursor.fetchall()
         else:
@@ -40,6 +42,7 @@ def execute(conn, sql, data=None, print_sql=False, submit=True, results=False):
                     cursor.execute(query=sql, vars=data)
 
 def exec_psql(conn, sql_path, print_sql=False, submit=True, **kwargs):
+    "Execute a parameterized .psql file"
     print('PG Executeing: '+sql_path)
     with open(sql_path, 'r') as sql_file:
         sql_template = sql_file.read()
@@ -47,31 +50,50 @@ def exec_psql(conn, sql_path, print_sql=False, submit=True, **kwargs):
     execute(conn, sql, print_sql=print_sql, submit=submit)
 
 def multi_insert(conn, data, table, column_list, schema='public', submit=True):
+    "Issue a multi-row insert"
     # http://stackoverflow.com/questions/8134602/psycopg2-insert-multiple-rows-with-one-query
     values = ",".join(["%s"] * len(data[0]))
-    sql = '''
-    insert into {schema}.{table} ({columns}) values ({values})
+    sql = '''insert into {schema}.{table} ({columns}) values ({values})
     '''.format(table=table, schema=schema, columns=column_list, values=values)
     execute(conn, sql, data=data, submit=submit)
 
-def copy_from(conn, file_obj, table, columns=None, schema='public', header='OFF', sep="\t"):
+def copy_from(conn, file_obj, table, columns, sep="\t"):
+    "Stream file_obj into table"
     with conn:
         with conn.cursor() as cursor:
-            # copy_sql = '''
-            # copy {schema}.{table} {columns} from stdin with
-            #     format csv
-            #     delimiter '{sep}'
-            #     header {header}
-            #     null ''
-            # '''.format(schema=schema, table=table, columns=columns, header=header, sep=sep)
-            # print(copy_sql)
-            # cursor.copy_expert(sql=copy_sql, file=file_obj)
             cursor.copy_from(file=file_obj, table=table, columns=columns, sep=sep)
 
-def drop_table(conn, table, schema='public'):
+def copy_expert(conn, file_obj, table, columns, schema='public', sep='\t', header='OFF'):
+    "Stream file_obj into table with copy options."
+    with conn:
+        with conn.cursor() as cursor:
+            copy_sql = '''
+            copy {schema}.{table} {columns} from stdin with
+                format csv
+                delimiter '{sep}'
+                header {header}
+            ;'''.format(schema=schema, table=table, columns=columns, header=header, sep=sep)
+            cursor.copy_expert(sql=copy_sql, file=file_obj)
+
+def copy_pgfutter(filepath, table='json_copy', schema='import', dtype='json'):
+    "Copy local json lines file to table via pgfutter"
+    cmd = '''./pgfutter --dbname={user} --host={host} --username={user} --pass={password} \
+        --schema={schema} --table={table} --ignore-errors {dtype} {file}'''.format(
+        user=os.environ['PG_ENV_POSTGRES_USER'], host=os.environ['PG_PORT_5432_TCP_ADDR'], 
+        password=os.environ['PG_ENV_POSTGRES_PASSWORD'], schema=schema, table=table, 
+        file=filepath, dtype=dtype)
+    os.system(cmd)
+
+def drop_table(conn, table, schema='public', print_sql=True):
+    "Issue 'drop table if exists' statment."
     sql = "drop table if exists {schema}.{table};".format(schema=schema, table=table)
-    execute(conn, sql)        
+    execute(conn, sql, print_sql=print_sql)
+
+def drop_schema(conn, schema, print_sql=True):
+    "Issue 'drop schema if exists .. cascade' statment."
+    sql = "drop schema if exists {schema} cascade;".format(schema=schema)
+    execute(conn, sql, print_sql=print_sql)
 
 def vacuum(conn, table, schema='public'):
-    with conn:
-        execute(conn, sql="vacuum analyze {schema}.{table};".format(schema=schema, table=table))
+    "Vacume & analyze table"
+    execute(conn, sql="vacuum analyze {schema}.{table};".format(schema=schema, table=table))
