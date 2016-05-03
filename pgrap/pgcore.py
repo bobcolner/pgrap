@@ -53,27 +53,6 @@ def copy_from(conn, file_obj, table, columns, sep="\t"):
         with conn.cursor() as cursor:
             cursor.copy_from(file=file_obj, table=table, columns=columns, sep=sep)
 
-def copy_expert(conn, file_obj, table, columns, schema='public', sep='\t', header='OFF'):
-    "Stream file_obj into table with copy options."
-    with conn:
-        with conn.cursor() as cursor:
-            copy_sql = '''
-            copy {schema}.{table} {columns} from stdin with
-                format csv
-                delimiter '{sep}'
-                header {header}
-            ;'''.format(schema=schema, table=table, columns=columns, header=header, sep=sep)
-            cursor.copy_expert(sql=copy_sql, file=file_obj)
-
-def copy_pgfutter(filepath, table='json_copy', schema='import', dtype='json'):
-    "Copy local json lines file to table via pgfutter"
-    cmd = '''./pgfutter --dbname={user} --host={host} --username={user} --pass={password} \
-        --schema={schema} --table={table} --ignore-errors {dtype} {file}'''.format(
-        user=os.environ['PG_ENV_POSTGRES_USER'], host=os.environ['PG_PORT_5432_TCP_ADDR'], 
-        password=os.environ['PG_ENV_POSTGRES_PASSWORD'], schema=schema, table=table, 
-        file=filepath, dtype=dtype)
-    os.system(cmd)
-
 def drop_table(conn, table, schema='public', print_sql=True):
     "Issue 'drop table if exists' statment."
     sql = "drop table if exists {schema}.{table};".format(schema=schema, table=table)

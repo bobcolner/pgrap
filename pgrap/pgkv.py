@@ -17,7 +17,6 @@ create table if not exists {schema}.{table} (
     , updated_at timestamp(0) default null
     , updated_count int default 0
 );
-
 create index if not exists idx_btree_key on {schema}.{table} using btree(key);
 
 create or replace function set_updated_at() returns trigger as $$
