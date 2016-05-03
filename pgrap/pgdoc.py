@@ -2,7 +2,7 @@ import io
 import csv
 import jsonpickle
 import tqdm
-from pgrap import pgrap
+from . import pgcore
 
 def create_doc(conn, table, schema='public'):
     sql = '''
@@ -35,16 +35,16 @@ drop trigger if exists inc_updated_count on {schema}.{table};
 create trigger inc_updated_count before update on {schema}.{table} for each row execute procedure inc_updated_count();
 '''.format(schema=schema, table=table)
     
-    pgrap.execute(conn, sql, print_sql=False)
+    pgcore.execute(conn, sql, print_sql=False)
 
 def insert_doc(conn, data, table, schema='public'):
     sql = '''
 insert into {schema}.{table} (doc) values (%s);'''.format(schema=schema, table=table)
-    pgrap.execute(conn, sql, data=(data,), print_sql=False)
+    pgcore.execute(conn, sql, data=(data,), print_sql=False)
 
 def insert_multi_doc(conn, data, table='copy_temp', schema='public', overwrite=False):
     if overwrite:
-        pgrap.drop_table(conn, table, schema)
+        pgcore.drop_table(conn, table, schema)
         create_doc(conn, table, schema)
     
     for row in tqdm.tqdm(data, desc='Inserting EightyCraw Stagging Data'):
@@ -53,17 +53,3 @@ def insert_multi_doc(conn, data, table='copy_temp', schema='public', overwrite=F
         except:
             print("Fail")
             continue
-
-def write_tsv(fio, data):
-    writer = csv.writer(fio, dialect='excel')
-    for row in tqdm.tqdm(data, desc='Writing TSV'):
-        writer.writerow(jsonpickle.dumps(row, False))
-    return fio
-
-def data2tsv(data, output='buffer'):
-    if output=='buffer':
-        with io.StringIO() as fio:
-            return write_tsv(fio, data)
-    elif output=='file':
-        with open("copy_tmp.tsv", "w") as fio:
-            return write_tsv(fio, data)

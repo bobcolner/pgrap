@@ -2,7 +2,7 @@ import io
 import csv
 import jsonpickle
 import tqdm
-from pgrap import pgrap
+from . import pgcore
 
 MAX_KEY = 2048
 
@@ -17,6 +17,9 @@ create table if not exists {schema}.{table} (
     , updated_at timestamp(0) default null
     , updated_count int default 0
 );
+
+create index if not exists idx_btree_key on {schema}.{table} using btree(key);
+
 create or replace function set_updated_at() returns trigger as $$
 begin
     new.updated_at := clock_timestamp();
@@ -25,7 +28,16 @@ end;
 $$ language plpgsql;
 drop trigger if exists set_updated_at on {schema}.{table};
 create trigger set_updated_at before update on {schema}.{table} for each row execute procedure set_updated_at();
-create index if not exists idx_btree_key on {schema}.{table} using btree(key);
+
+create or replace function inc_updated_count() returns trigger as $$
+begin
+    new.updated_count := new.updated_count + 1;
+    return new;
+end;
+$$ language plpgsql;
+drop trigger if exists inc_updated_count on {schema}.{table};
+create trigger inc_updated_count before update on {schema}.{table} for each row execute procedure inc_updated_count();
+
 '''.format(schema=schema, table=table, dtype=dtype, n=MAX_KEY)
 
     # add optional indexes
@@ -37,16 +49,16 @@ create index if not exists idx_trgm_value on {schema}.{table} using gin(value gi
         sql = sql + '''
 create index if not exists idx_gin_value on {schema}.{table} using gin(value jsonb_path_ops);'''.format(schema=schema, table=table)
     
-    pgrap.execute(conn, sql)
+    pgcore.execute(conn, sql)
 
 def kv_setup(conn, table='kv', schema='public', dtype='jsonb', setup='create'):
     if setup == 'create':
         create_kv(conn, table, schema, dtype)
     elif setup == 'overwrite':
-        pgrap.drop_table(conn, table, schema)
+        pgcore.drop_table(conn, table, schema)
         create_kv(conn, table, schema, dtype)
     elif setup == 'drop':
-        pgrap.drop_table(conn, table, schema)
+        pgcore.drop_table(conn, table, schema)
 
 def insert_kv(conn, k_data, v_data, table='kv', schema='public', dtype='auto', setup='create'):
     
@@ -69,11 +81,10 @@ def insert_kv(conn, k_data, v_data, table='kv', schema='public', dtype='auto', s
     sql = '''
 insert into {schema}.{table} (key, value) values (%s, %s)
 on conflict (key) do update set 
-    value = excluded.value, 
-    updated_count = {schema}.{table}.updated_count + 1
+    value = excluded.value
 ;'''.format(schema=schema, table=table)
     
-    pgrap.execute(conn, sql, data=(str(k_data), v_data))
+    pgcore.execute(conn, sql, data=(str(k_data), v_data))
 
 def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='jsonb', setup='create'):
     if setup:
@@ -89,7 +100,7 @@ def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='json
 def find_kv(conn, table, key, select='*', schema='public'):
     sql = '''select {select} from {schema}.{table} where key = '{key}';
     '''.format(select=select, key=key, table=table, schema=schema)
-    return pgrap.query(conn, sql)
+    return pgcore.query(conn, sql)
 
 def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=False):
     search = search.replace(' ', '&')
@@ -97,4 +108,4 @@ def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=F
     '''.format(schema=schema, table=table, select=select, search=search)
     if limit:
         sql = sql + "\nlimit {limit}".format(limit=limit)
-    return pgrap.query(conn, sql)
+    return pgcore.query(conn, sql)
