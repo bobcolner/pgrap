@@ -7,8 +7,30 @@ setup(
     description = 'Postgres library for key-value and document style db access',
     author = 'Bob Colner',
     author_email = 'bcolner@gmail.com',
-    url = 'https://github.com/bobcolner/pgrap', # use the URL to the github repo
-    download_url = 'https://github.com/bobcolner/pgrap/tarball/0.1', # I'll explain this in a second
-    keywords = ['postgres', 'sql', 'key-value'], # arbitrary keywords
-    classifiers = [],
+    license='MIT',
+    url = 'https://github.com/bobcolner/pgrap',
+    download_url = 'https://github.com/bobcolner/pgrap/tarball/0.1', 
+    keywords = ['postgres', 'sql', 'key-value'], 
+    # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    classifiers=[
+        # How mature is this project? Common values are
+        #   3 - Alpha
+        #   4 - Beta
+        #   5 - Production/Stable
+        'Development Status :: 3 - Alpha',
+
+        # Indicate who your project is intended for
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Database Tools',
+
+        # Pick your license as you wish (should match "license" above)
+        'License :: OSI Approved :: MIT License',
+
+        # Specify the Python versions you support here. In particular, ensure
+        # that you indicate whether you support Python 2, Python 3 or both.
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+    ],
+    install_requires=["psycopg2", "jsonpickle", "tqdm"],
 )
