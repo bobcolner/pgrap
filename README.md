@@ -1,5 +1,5 @@
-# dbrap
+# pgrap
 High-level functions to access Postgres Capabilities.
 
-To build docker container:
-	-docker build -t dbrap/dev .
+- Key-value DB
+- Document DB
