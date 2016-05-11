@@ -9,6 +9,7 @@ __copyright__ = 'Copyright 2016 Bob Colner'
 
 from . import pgrap
 from . import pgkv
+from . import pgdoc
 
 # Set default logging handler to avoid "No handler found" warnings.
 import logging

@@ -96,12 +96,19 @@ def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='json
             _logger.info('multi-insert record fail: {0}'.format(row[k_name]))
             continue
 
-def find_kv(conn, table, key, select='*', schema='public'):
+def find_key(conn, table, key, select='*', schema='public'):
     sql = '''select {select} from {schema}.{table} where key = '{key}';
     '''.format(select=select, key=key, table=table, schema=schema)
     return pgrap.query(conn, sql)
 
-def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=False):
+def search_value(conn, search, table, schema='public', select='*', limit=False):
+    sql = '''select {select} from {schema}.{table} where value {search};
+    '''.format(schema=schema, table=table, select=select, search=search)
+    if limit:
+        sql = sql + "\nlimit {limit}".format(limit=limit)
+    return pgrap.query(conn, sql)
+
+def fulltext_search_value(conn, search, table, schema='public', select='*', limit=False):
     search = search.replace(' ', '&')
     sql = '''select {select} from {schema}.{table} where to_tsvector(value) @@ to_tsquery('{search}');
     '''.format(schema=schema, table=table, select=select, search=search)

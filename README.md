@@ -18,16 +18,19 @@ from pgrap import pgrap, pgkv
 conn = pgrap.psycopg2.connect(...)
 ```
 
-###### PG KV functions
+###### PG Key-Value functions
 ```py
 # insert data into key-value table. Optionally create / overwrite table.
 pgkv.insert_kv(conn, k_data, v_data, table='kv', schema='public', dtype='auto', setup='create')
 
 # find record with key
-pgkv.find_kv(conn, table, key, select='*', schema='public')
+pgkv.find_key(conn, table, key, select='*', schema='public')
 
-# full-text search (request text value type)
-pgkv.fulltext_search_kv(conn, search, table, schema='public', select='*', limit=False)
+# search JSONB value
+pgkv.search_value(conn, search, table, schema='public', select='*', limit=False)
+
+# full-text search text value
+pgkv.fulltext_search_value(conn, search, table, schema='public', select='*', limit=False)
 
 # insert multiple key-value records (loop)
 pgkv.insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='jsonb', setup='create')

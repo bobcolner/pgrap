@@ -1,8 +1,6 @@
-import io
-import csv
 import jsonpickle
 import tqdm
-from . import pgcore
+from . import pgrap
 
 def create_doc(conn, table, schema='public'):
     sql = '''
@@ -35,7 +33,7 @@ drop trigger if exists inc_updated_count on {schema}.{table};
 create trigger inc_updated_count before update on {schema}.{table} for each row execute procedure inc_updated_count();
 '''.format(schema=schema, table=table)
     
-    pgcore.execute(conn, sql)
+    pgrap.execute(conn, sql)
 
 def insert_doc(conn, data, table, schema='public'):
     sql = '''
@@ -43,17 +41,17 @@ insert into {schema}.{table} (doc) values (%s)
 on conflict (doc) do update set 
     doc = excluded.doc
 ;'''.format(schema=schema, table=table)
-
-    pgcore.execute(conn, sql, data=(jsonpickle.encode(data, False),))
+    
+    pgrap.execute(conn, sql, data=(jsonpickle.encode(data, False),))
 
 def insert_multi_doc(conn, data, table='copy_temp', schema='public', overwrite=False):
     if overwrite:
-        pgcore.drop_table(conn, table, schema)
+        pgrap.drop_table(conn, table, schema)
         create_doc(conn, table, schema)
     
     for row in tqdm.tqdm(data, desc='Inserting EightyCraw Stagging Data'):
         try:
             insert_doc(conn, data=row, table=table, schema=schema)
         except:
-            print("Fail")
+            _logger.info('multi-insert record fail: {0}'.format(row[k_name]))
             continue
