@@ -1,15 +1,18 @@
-from distutils.core import setup
+from setuptools import find_packages, setup
+
+VERSION = '0.2'
 
 setup(
     name = 'pgrap',
-    packages = ['pgrap'], # this must be the same as the name above
-    version = '0.1',
+    packages = find_packages(),  
+    version = VERSION,
+    platforms=['any'],
     description = 'Postgres library for key-value and document style db access',
     author = 'Bob Colner',
     author_email = 'bcolner@gmail.com',
     license='MIT',
     url = 'https://github.com/bobcolner/pgrap',
-    download_url = 'https://github.com/bobcolner/pgrap/tarball/0.1', 
+    download_url = 'https://github.com/bobcolner/pgrap/tarball/{0}'.format(VERSION), 
     keywords = ['postgres', 'sql', 'key-value'], 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -28,5 +31,5 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
     ],
-    install_requires=['psycopg2', 'jsonpickle', 'tqdm']
+    install_requires = [ i.strip() for i in open("requirements.txt").readlines() ]
 )
