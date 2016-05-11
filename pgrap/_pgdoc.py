@@ -35,7 +35,7 @@ drop trigger if exists inc_updated_count on {schema}.{table};
 create trigger inc_updated_count before update on {schema}.{table} for each row execute procedure inc_updated_count();
 '''.format(schema=schema, table=table)
     
-    pgcore.execute(conn, sql, print_sql=False)
+    pgcore.execute(conn, sql)
 
 def insert_doc(conn, data, table, schema='public'):
     sql = '''
@@ -44,7 +44,7 @@ on conflict (doc) do update set
     doc = excluded.doc
 ;'''.format(schema=schema, table=table)
 
-    pgcore.execute(conn, sql, data=(jsonpickle.encode(data, False),), print_sql=False)
+    pgcore.execute(conn, sql, data=(jsonpickle.encode(data, False),))
 
 def insert_multi_doc(conn, data, table='copy_temp', schema='public', overwrite=False):
     if overwrite:

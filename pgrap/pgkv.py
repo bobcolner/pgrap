@@ -2,7 +2,7 @@ import io
 import csv
 import jsonpickle
 import tqdm
-from . import pgcore
+from . import pgrap
 
 MAX_KEY = 2048
 
@@ -48,22 +48,22 @@ create index if not exists idx_trgm_value on {schema}.{table} using gin(value gi
         sql = sql + '''
 create index if not exists idx_gin_value on {schema}.{table} using gin(value jsonb_path_ops);'''.format(schema=schema, table=table)
     
-    pgcore.execute(conn, sql)
+    pgrap.execute(conn, sql)
 
 def kv_setup(conn, table='kv', schema='public', dtype='jsonb', setup='create'):
     if setup == 'create':
         create_kv(conn, table, schema, dtype)
     elif setup == 'overwrite':
-        pgcore.drop_table(conn, table, schema)
+        pgrap.drop_table(conn, table, schema)
         create_kv(conn, table, schema, dtype)
     elif setup == 'drop':
-        pgcore.drop_table(conn, table, schema)
+        pgrap.drop_table(conn, table, schema)
 
 def insert_kv(conn, k_data, v_data, table='kv', schema='public', dtype='auto', setup='create'):
     
     if len(str(k_data)) > MAX_KEY:
-        print('key data to large: '+str(k_data)[0:MAX_KEY])
-        return None
+        _logger.info('key data to large: {0}'.format(str(k_data)[0:MAX_KEY]))
+        return
     
     if dtype == 'auto':    
         if type(v_data) == str:
@@ -83,7 +83,7 @@ on conflict (key) do update set
     value = excluded.value
 ;'''.format(schema=schema, table=table)
     
-    pgcore.execute(conn, sql, data=(str(k_data), v_data))
+    pgrap.execute(conn, sql, data=(str(k_data), v_data))
 
 def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='jsonb', setup='create'):
     if setup:
@@ -93,13 +93,13 @@ def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='json
         try:
             insert_kv(conn, k_data=row[k_name], v_data=row, table=table, schema=schema, dtype=dtype, setup=None)
         except:
-            print("Fail: "+row[k_name])
+            _logger.info('multi-insert record fail: {0}'.format(row[k_name]))
             continue
 
 def find_kv(conn, table, key, select='*', schema='public'):
     sql = '''select {select} from {schema}.{table} where key = '{key}';
     '''.format(select=select, key=key, table=table, schema=schema)
-    return pgcore.query(conn, sql)
+    return pgrap.query(conn, sql)
 
 def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=False):
     search = search.replace(' ', '&')
@@ -107,4 +107,4 @@ def fulltext_search_kv(conn, search, table, schema='public', select='*', limit=F
     '''.format(schema=schema, table=table, select=select, search=search)
     if limit:
         sql = sql + "\nlimit {limit}".format(limit=limit)
-    return pgcore.query(conn, sql)
+    return pgrap.query(conn, sql)
