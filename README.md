@@ -5,9 +5,6 @@ High-level functions to access Postgres Capabilities.
 - Simple to use funcation acess to postgres db
 - Easy & preformant key-value API. Requires PG9.5 to for indexed JSONB type and native upserts.
 
-# S3rap
-AWS S3 convenience functions based on boto3.
-
 #### install
 ```sh
 pip install pgrap
