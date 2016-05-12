@@ -16,6 +16,7 @@ from pgrap import pgrap, pgkv
 
 # connect via psycopg2
 conn = pgrap.psycopg2.connect(...)
+conn.autocommit = True
 ```
 
 ###### PG Key-Value functions
@@ -38,4 +39,3 @@ pgkv.insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='jso
 # create new key-value table
 pgkv.create_kv(conn, table='kv', schema='public', dtype='jsonb')
 ```
-

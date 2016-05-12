@@ -2,7 +2,7 @@ import psycopg2
 import os
 _logger = logging.getLogger(__name__)
 
-def query(conn, sql, results='nt', print_sql=False):
+def query(conn, sql, results='namedtuple'):
     "Issue SQL query that returns a result set."
     return execute(conn, sql, results=results)
 
@@ -17,7 +17,7 @@ def execute(conn, sql, data=None, results=False):
                 cur_type = psycopg2.extras.RealDictCursor
             elif results == 'logging':
                 cur_type = psycopg2.extras.LoggingCursor
-            else:
+            elif results == 'namedtuple'
                 cur_type = psycopg2.extras.NamedTupleCursor
             with conn.cursor(cursor_factory=cur_type) as cursor:
                 cursor.execute(query=sql, vars=data)
@@ -28,7 +28,7 @@ def execute(conn, sql, data=None, results=False):
                 cursor.execute(query=sql, vars=data)
                 _logger.info('executing statment: {0}'.format(sql))
 
-def exec_psql(conn, sql_path, print_sql=False, submit=True, **kwargs):
+def exec_psql(conn, sql_path, submit=True, **kwargs):
     "Execute a parameterized .psql file"
     with open(sql_path, 'r') as sql_file:
         sql_template = sql_file.read()
