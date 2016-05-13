@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-VERSION = '0.4'
+VERSION = '0.5'
 
 setup(
     name = 'pgrap',
@@ -31,5 +31,9 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
     ],
-    install_requires = [ i.strip() for i in open("requirements.txt").readlines() ]
+    install_requires = [
+        'psycopg2 >=2.6.0, <3.0', 
+        'jsonpickle >=0.9, <2.0', 
+        'tqdm  >=4.5.0, <5.0'
+    ]
 )

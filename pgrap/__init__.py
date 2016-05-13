@@ -1,8 +1,8 @@
 '''
-PGRAP
+High-level functions to access Postgres Capabilities.
 '''
 __title__ = 'pgrap'
-__version__ = '0.4'
+__version__ = '0.5'
 __author__ = 'Bob Colner'
 __license__ = 'MIT'
 __copyright__ = 'Copyright 2016 Bob Colner'
