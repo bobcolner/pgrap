@@ -6,7 +6,7 @@ from . import pgrap
 
 MAX_KEY = 2048
 
-def create_kv(conn, table='kv', schema='public', dtype='jsonb'):    
+def create_kv(conn, table='kv', schema='public', dtype='jsonb'):
     sql = '''
 create schema if not exists {schema};
 create table if not exists {schema}.{table} (
@@ -47,7 +47,7 @@ create index if not exists idx_trgm_value on {schema}.{table} using gin(value gi
     elif dtype == 'jsonb':
         sql = sql + '''
 create index if not exists idx_gin_value on {schema}.{table} using gin(value jsonb_path_ops);'''.format(schema=schema, table=table)
-    
+
     pgrap.execute(conn, sql)
 
 def kv_setup(conn, table='kv', schema='public', dtype='jsonb', setup='create'):
@@ -60,29 +60,29 @@ def kv_setup(conn, table='kv', schema='public', dtype='jsonb', setup='create'):
         pgrap.drop_table(conn, table, schema)
 
 def insert_kv(conn, k_data, v_data, table='kv', schema='public', dtype='auto', setup='create'):
-    
+
     if len(str(k_data)) > MAX_KEY:
         _logger.info('key data to large: {0}'.format(str(k_data)[0:MAX_KEY]))
         return
-    
-    if dtype == 'auto':    
+
+    if dtype == 'auto':
         if type(v_data) == str:
             dtype = 'text'
         else:
             dtype = 'jsonb'
-    
+
     if dtype == 'jsonb':
         v_data = jsonpickle.encode(v_data, False)
-    
+
     if setup:
         kv_setup(conn, table, schema, dtype, setup)
 
     sql = '''
 insert into {schema}.{table} (key, value) values (%s, %s)
-on conflict (key) do update set 
+on conflict (key) do update set
     value = excluded.value
 ;'''.format(schema=schema, table=table)
-    
+
     pgrap.execute(conn, sql, data=(str(k_data), v_data))
 
 def insert_multi_kv(conn, data, k_name, table='kv', schema='public', dtype='jsonb', setup='create'):

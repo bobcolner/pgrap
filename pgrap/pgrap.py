@@ -17,7 +17,7 @@ def execute(conn, sql, data=None, results=False):
                 cur_type = psycopg2.extras.RealDictCursor
             elif results == 'logging':
                 cur_type = psycopg2.extras.LoggingCursor
-            elif results == 'namedtuple'
+            elif results == 'namedtuple':
                 cur_type = psycopg2.extras.NamedTupleCursor
             with conn.cursor(cursor_factory=cur_type) as cursor:
                 cursor.execute(query=sql, vars=data)
@@ -28,13 +28,13 @@ def execute(conn, sql, data=None, results=False):
                 cursor.execute(query=sql, vars=data)
                 _logger.info('executing statment: {0}'.format(sql))
 
-def exec_psql(conn, sql_path, submit=True, **kwargs):
+def exec_psql(conn, sql_path, results=True, **kwargs):
     "Execute a parameterized .psql file"
     with open(sql_path, 'r') as sql_file:
         sql_template = sql_file.read()
     sql = sql_template.format(**kwargs)
     _logger.info('executing psql file: {0}'.format(sql_path))
-    execute(conn, sql, submit=submit)
+    execute(conn, sql, results=results)
 
 def multi_insert(conn, data, table, column_list, schema='public', submit=True):
     "Issue a multi-row insert"
